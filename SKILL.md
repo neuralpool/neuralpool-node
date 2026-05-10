@@ -21,15 +21,15 @@ NeuralPool is a decentralized LLM API marketplace. Think of it as an "Airbnb for
 
 **1. As a Node Operator (Earn Money)**
 
-If you have cloud compute credits, access to LLM APIs, or self-hosted inference endpoints sitting idle, you can monetize them:
+If you have cloud compute credits or access to LLM APIs sitting idle, you can monetize them:
 
 - Register at [neuralpool.ai](https://neuralpool.ai)
 - Install this Node Agent on your machine
 - Configure your upstream providers and set your own prices
 - Your idle capacity starts earning immediately — paid per token forwarded
-- Earnings settle after a T+1 clearing period, then withdraw to your Solana wallet
+- Earnings settle after a T+1 or T+30 clearing period, then withdraw to your Solana wallet
 
-Your API keys **never leave your machine**. The Node Agent connects to NeuralPool's central server via encrypted gRPC tunnel, receives inference requests, forwards them to your configured upstream provider, and streams the response back. The server handles all billing, user management, and payment settlement.
+Your API keys **never leave your machine**. The Node Agent connects to NeuralPool's central server via an encrypted tunnel, receives inference requests, forwards them to your configured upstream provider, and streams the response back. The server handles all billing, user management, and payment settlement.
 
 **2. As an API Consumer (Save Money)**
 
@@ -48,7 +48,7 @@ API Consumer                    Central Server                   Node Operator
     │                               │                               │
     │  OpenAI-format request        │                               │
     │──────────────────────────────>│                               │
-    │                               │  gRPC tunnel (encrypted)      │
+    │                               │  Encrypted tunnel               │
     │                               │──────────────────────────────>│
     │                               │                               │──> Upstream LLM
     │                               │                               │<── Provider API
@@ -59,12 +59,12 @@ API Consumer                    Central Server                   Node Operator
 
 ## Platform Features
 
-- **Unified API**: One endpoint, one API key, all models. Protocol translation between different provider formats happens transparently inside Node agents.
+- **Unified API**: One endpoint, one API key, all models. Different provider formats are handled automatically.
 - **Self-pricing**: Node operators set their own per-model input/output prices. Market competition drives prices down for consumers.
-- **Key security**: Upstream API keys never leave the Node operator's machine. Zero trust architecture.
-- **Real-time billing**: PreLock/Settle mechanism ensures accurate token-by-token charging. No over-billing.
-- **Solana payments**: Deposit USDT (SPL), withdraw to any Solana wallet after T+1 settlement. NC (NeuralCredit) internal currency: 1 USD = 100 NC.
-- **Multi-provider**: Support for any OpenAI-compatible endpoint, Anthropic-format APIs, Google Gemini, local inference engines (vLLM, Ollama), and more.
+- **Key security**: Upstream API keys never leave the Node operator's machine.
+- **Real-time billing**: Accurate token-by-token charging. No over-billing.
+- **Solana payments**: Deposit USDT (SPL), withdraw to any Solana wallet after T+1 or T+30 settlement (varies by funding source). NC (NeuralCredit) internal currency: 1 USD = 100 NC.
+- **Multi-provider**: Support for major LLM providers with pre-configured endpoints. Just bring your API key.
 
 ## Quick Start for Node Operators
 
@@ -80,15 +80,16 @@ Run the installer script — it auto-detects your OS and architecture:
 curl -fsSL https://neuralpool.ai/install.sh | bash
 ```
 
-Or download manually from [GitHub Releases](https://github.com/neuralpool/node/releases):
+Or download manually from [GitHub Releases](https://github.com/neuralpool/neuralpool-node/releases):
 
 | Platform | File |
 |----------|------|
 | Linux x86_64 | `npnode-linux-amd64` |
 | Linux ARM64 | `npnode-linux-arm64` |
-| macOS ARM64 | `npnode-darwin-arm64` |
 | macOS x86_64 | `npnode-darwin-amd64` |
+| macOS ARM64 | `npnode-darwin-arm64` |
 | Windows x86_64 | `npnode-windows-amd64.exe` |
+| Windows ARM64 | `npnode-windows-arm64.exe` |
 
 ### Step 3: Configure
 
@@ -98,7 +99,7 @@ npnode setup
 
 The interactive wizard will guide you through:
 - Setting your NeuralPool auth token
-- Adding upstream LLM providers (API key, base URL)
+- Adding upstream LLM providers (API key, provider selection)
 - Selecting models to serve and setting your prices (per 1M tokens, input/output separately)
 - Configuring concurrency and timeout limits
 
@@ -113,7 +114,7 @@ Your Node connects to the NeuralPool network and begins receiving requests. You 
 ### Step 5: Monitor & Withdraw
 
 - Dashboard at [neuralpool.ai](https://neuralpool.ai) shows real-time earnings, request stats, and node health
-- Withdraw earnings to any Solana wallet at any time
+- Withdraw earnings to any Solana wallet after T+1 or T+30 settlement (varies by funding source)
 
 ## Quick Start for API Consumers
 
@@ -127,7 +128,7 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="https://neuralpool.ai/v1",
-    api_key="np-YOUR_API_KEY"
+    api_key="sk-YOUR_API_KEY_HERE"
 )
 
 response = client.chat.completions.create(
@@ -150,30 +151,28 @@ response = client.chat.completions.create(
 
 - **NC (NeuralCredit)**: Internal platform currency. 1 USD = 100 NC = 1,000,000 uNC
 - Node operators set prices in uNC per 1M tokens (input and output separately)
-- Platform applies a commission (default 15%) on top of node operator prices
+- Platform commission applies on top of node operator prices
 - Consumers see and pay the final price including commission
 
 ## Security Model
 
-- Upstream API keys stored locally in `node.yaml`, never transmitted to the server
-- gRPC communication encrypted via ECDH (X25519) + AES-256-GCM tunnel
-- TLS certificates for node-to-server authentication
-- HMAC-SHA256 key derivation for user deposit addresses
-- Signer server (offline) manages all blockchain private keys
+- Upstream API keys stored locally, never transmitted to the server
+- All communication with the server is encrypted
+- Server connection is automatic — no manual configuration needed
 
 ## Requirements
 
 - Any machine with internet access (no GPU required — you're proxying API calls, not running inference locally)
 - Go 1.24+ (only if building from source)
-- Network access to NeuralPool Central Server (gRPC port 50051)
+- Network access to NeuralPool Central Server
 - Network access to your configured upstream LLM provider APIs
 
 ## External Endpoints
 
 | URL | Purpose | Data Sent |
 |-----|---------|-----------|
-| `neuralpool.ai:50051` | gRPC tunnel to central server | Auth token, model requests/responses, billing data |
-| User-configured endpoints | Any LLM provider API the operator configures | LLM prompts, receives completions |
+| NeuralPool server | Encrypted tunnel to central server | Auth token, model requests/responses, billing data |
+| Upstream LLM providers | Pre-configured provider API endpoints | LLM prompts, receives completions |
 
 ## Links
 
@@ -198,15 +197,15 @@ NeuralPoolは、分散型LLM APIマーケットプレイスです。「LLM API�
 
 **1. ノードオペレーターとして（収益化）**
 
-クラウドコンピューティングクレジット、LLM APIへのアクセス、またはセルフホスト推論エンドポイントが余っている場合、それを収益化できます：
+クラウドコンピューティングクレジットやLLM APIへのアクセスが余っている場合、それを収益化できます：
 
 - [neuralpool.ai](https://neuralpool.ai) でアカウント登録
 - このノードエージェントをマシンにインストール
 - 上流プロバイダーを設定し、独自の価格を設定
-- 闲置キャパシティがすぐに収益を生み始めます — 転送されたトークンごとに課金
-- 収益はT+1決済期間後にSolanaウォレットに出金可能
+- アイドルキャパシティがすぐに収益を生み始めます — 転送されたトークンごとに課金
+- 収益はT+1またはT+30決済期間後にSolanaウォレットに出金可能
 
-APIキーは**マシンから一切送信されません**。ノードエージェントは暗号化されたgRPCトンネルでNeuralPoolの中央サーバーに接続し、推論リクエストを受信、設定された上流プロバイダーに転送し、レスポンスをストリーミングします。サーバーは課金、ユーザー管理、決済をすべて処理します。
+APIキーは**マシンから一切送信されません**。ノードエージェントは暗号化トンネルでNeuralPoolの中央サーバーに接続し、推論リクエストを受信、設定された上流プロバイダーに転送し、レスポンスをストリーミングします。サーバーは課金、ユーザー管理、決済をすべて処理します。
 
 **2. API利用者として（コスト削減）**
 
@@ -241,12 +240,81 @@ npnode start
 
 ### プラットフォーム機能
 
-- **統合API**: エンドポイント1つ、APIキー1つで全モデル対応。異なるプロバイダー間のプロトコル変換はノードエージェント内で自動処理
+- **統合API**: エンドポイント1つ、APIキー1つで全モデル対応。異なるプロバイダー間の形式差異は自動処理
 - **自己価格設定**: ノードオペレーターがモデルごとに入力/出力価格を自由設定。市場競争が消費者価格を下げる
-- **キーセキュリティ**: 上流APIキーはノードオペレーターのマシンから一切送信されない。ゼロトラストアーキテクチャ
-- **リアルタイム課金**: PreLock/Settleメカニズムで正確なトークンごとの課金
-- **Solana決済**: USDT（SPL）入金、T+1決済後に任意のSolanaウォレットに出金可能
-- **マルチプロバイダー**: OpenAI互換エンドポイント、Anthropic形式API、Google Gemini、ローカル推論エンジン（vLLM、Ollama）などに対応
+- **キーセキュリティ**: 上流APIキーはノードオペレーターのマシンから一切送信されない
+- **リアルタイム課金**: 正確なトークンごとの課金
+- **Solana決済**: USDT（SPL）入金、T+1またはT+30決済後に任意のSolanaウォレットに出金可能
+- **マルチプロバイダー**: 主要なLLMプロバイダーに対応。エンドポイントは事前設定済み、APIキーを追加するだけ
+
+### API利用者のクイックスタート
+
+1. [neuralpool.ai](https://neuralpool.ai) で登録
+2. 専用入金アドレスにUSDT（SPL）を入金
+3. ダッシュボードでAPIキーを生成
+4. 任意のOpenAI SDKのドロップイン置き換えとして使用：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://neuralpool.ai/v1",
+    api_key="sk-YOUR_API_KEY_HERE"
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "こんにちは！"}]
+)
+```
+
+### ノードエージェントコマンド
+
+| コマンド | 説明 |
+|---------|------|
+| `npnode setup` | 対話型設定ウィザード |
+| `npnode start` | ノードを起動しリクエストの転送を開始 |
+| `npnode config` | 現在の設定を表示 |
+| `npnode reset-quota [model]` | モデルのトークンクォータカウンターをリセット（全モデルも可） |
+| `npnode version` | バージョンを表示 |
+
+### 料金と通貨
+
+- **NC（NeuralCredit）**: プラットフォーム内部通貨。1 USD = 100 NC = 1,000,000 uNC
+- ノードオペレーターは1MトークンあたりのuNCで価格を設定（入力/出力別）
+- プラットフォーム手数料がオペレーター価格に上乗せ
+- 利用者は手数料込みの最終価格を確認し支払う
+
+### セキュリティモデル
+
+- 上流APIキーはローカル保存、サーバーに送信されない
+- サーバーとの通信はすべて暗号化
+- サーバー接続は自動 — 手動設定不要
+
+### 要件
+
+- インターネット接続のあるマシン（GPU不要 — API呼び出しの転送であり、ローカル推論ではない）
+- Go 1.24+（ソースからビルドする場合のみ）
+- NeuralPoolセントラルサーバーへのネットワークアクセス
+- 設定した上流LLMプロバイダーAPIへのネットワークアクセス
+
+### 外部エンドポイント
+
+| URL | 目的 | 送信データ |
+|-----|------|-----------|
+| NeuralPoolサーバー | 暗号化トンネルでセントラルサーバーに接続 | 認証トークン、モデルリクエスト/レスポンス、課金データ |
+| 上流LLMプロバイダー | 事前設定済みのプロバイダーAPIエンドポイント | LLMプロンプト、レスポンス受信 |
+
+### リンク
+
+- **ウェブサイト**: [neuralpool.ai](https://neuralpool.ai)
+- **ドキュメント**: [docs.neuralpool.ai](https://neuralpool.ai/docs)
+- **GitHub**: [github.com/neuralpool](https://github.com/neuralpool)
+- **サポート**: support@neuralpool.ai
+
+### ライセンス
+
+MIT
 
 ---
 
@@ -260,15 +328,15 @@ NeuralPool 是一个去中心化的 LLM API 市场。你可以把它想象成"LL
 
 **1. 作为节点运营者（赚钱）**
 
-如果你有云计算额度、LLM API 访问权限、或自建推理服务处于闲置状态，你可以把它们变现：
+如果你有云计算额度或 LLM API 访问权限处于闲置状态，你可以把它们变现：
 
 - 在 [neuralpool.ai](https://neuralpool.ai) 注册账号
 - 在你的机器上安装本节点代理
 - 配置你的上游 LLM 供应商，自主定价
 - 闲置算力立即开始赚钱——按转发的 token 计费
-- 收益经 T+1 结算周期后可提现到你的 Solana 钱包
+- 收益经 T+1 或 T+30 结算周期后可提现到你的 Solana 钱包
 
-你的 API 密钥**永远不会离开你的机器**。节点代理通过加密的 gRPC 隧道连接到 NeuralPool 中央服务器，接收推理请求，转发到配置的上游供应商，并流式返回响应。服务器负责所有计费、用户管理和支付结算。
+你的 API 密钥**永远不会离开你的机器**。节点代理通过加密隧道连接到 NeuralPool 中央服务器，接收推理请求，转发到配置的上游供应商，并流式返回响应。服务器负责所有计费、用户管理和支付结算。
 
 **2. 作为 API 使用者（省钱）**
 
@@ -299,13 +367,82 @@ npnode setup
 npnode start
 ```
 
-**第5步**: 在仪表盘查看实时收益，T+1 结算后提现到 Solana 钱包
+**第5步**: 在仪表盘查看实时收益，T+1 或 T+30 结算后提现到 Solana 钱包
 
 ### 平台特性
 
-- **统一 API**: 一个端点、一个密钥、所有模型。不同供应商格式之间的协议转换在节点代理内部自动完成
+- **统一 API**: 一个端点、一个密钥、所有模型。不同供应商格式自动处理
 - **自主定价**: 节点运营者自行设置每个模型的输入/输出价格。市场竞争为使用者带来更低价格
-- **密钥安全**: 上游 API 密钥从不离开节点运营者的机器。零信任架构
-- **实时计费**: PreLock/Settle 机制确保精确的逐 token 计费
-- **Solana 支付**: 充值 USDT（SPL），T+1 结算后可提现到任意 Solana 钱包
-- **多供应商支持**: 支持 OpenAI 兼容端点、Anthropic 格式 API、Google Gemini、本地推理引擎（vLLM、Ollama）等
+- **密钥安全**: 上游 API 密钥从不离开节点运营者的机器
+- **实时计费**: 精确的逐 token 计费
+- **Solana 支付**: 充值 USDT（SPL），T+1 或 T+30 结算后可提现到任意 Solana 钱包
+- **多供应商支持**: 支持主流 LLM 供应商，端点已预配置，只需提供 API 密钥
+
+### API 使用者快速开始
+
+1. 在 [neuralpool.ai](https://neuralpool.ai) 注册
+2. 向专属充值地址存入 USDT（SPL）
+3. 在仪表盘生成 API 密钥
+4. 作为任意 OpenAI SDK 的即插即用替代：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://neuralpool.ai/v1",
+    api_key="sk-YOUR_API_KEY_HERE"
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "你好！"}]
+)
+```
+
+### 节点代理命令
+
+| 命令 | 说明 |
+|---------|------|
+| `npnode setup` | 交互式配置向导 |
+| `npnode start` | 启动节点并开始转发请求 |
+| `npnode config` | 显示当前配置 |
+| `npnode reset-quota [model]` | 重置某模型（或全部）的 token 配额计数 |
+| `npnode version` | 打印版本号 |
+
+### 定价与货币
+
+- **NC（NeuralCredit）**：平台内部货币。1 USD = 100 NC = 1,000,000 uNC
+- 节点运营者以 uNC/百万 token 为单位自主定价（输入/输出分开）
+- 平台在运营者价格之上收取佣金
+- 使用者看到并支付含佣金的最终价格
+
+### 安全模型
+
+- 上游 API 密钥存储在本地，绝不发送到服务器
+- 与服务器的所有通信均已加密
+- 服务器连接自动完成——无需手动配置
+
+### 系统要求
+
+- 任意可联网的机器（无需 GPU——你转发 API 调用，不在本地跑推理）
+- Go 1.24+（仅源码编译时需要）
+- 可访问 NeuralPool 中央服务器的网络
+- 可访问你配置的上游 LLM 供应商 API 的网络
+
+### 外部端点
+
+| URL | 用途 | 发送的数据 |
+|-----|------|-----------|
+| NeuralPool 服务器 | 加密隧道连接中央服务器 | 认证令牌、模型请求/响应、计费数据 |
+| 上游 LLM 供应商 | 预配置的供应商 API 端点 | LLM 提示词，接收回复 |
+
+### 链接
+
+- **网站**: [neuralpool.ai](https://neuralpool.ai)
+- **文档**: [docs.neuralpool.ai](https://neuralpool.ai/docs)
+- **GitHub**: [github.com/neuralpool](https://github.com/neuralpool)
+- **支持**: support@neuralpool.ai
+
+### 许可证
+
+MIT
